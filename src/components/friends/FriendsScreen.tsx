@@ -1,5 +1,7 @@
+import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { daysSinceContact, suggestedFriends } from '../../game/friends'
+import { useReducedMotion } from '../../hooks/useReducedMotion'
 import { useSound } from '../../hooks/useSound'
 import { useAppDispatch, useAppState } from '../../state/store'
 import { useToast } from '../../state/toast'
@@ -18,6 +20,7 @@ export function FriendsScreen() {
   const dispatch = useAppDispatch()
   const toast = useToast()
   const { play } = useSound()
+  const reducedMotion = useReducedMotion()
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [frequency, setFrequency] = useState<FriendFrequency>('monthly')
@@ -72,27 +75,30 @@ export function FriendsScreen() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <button
+                <motion.button
                   type="button"
                   onClick={() => logContact(friend.id, 'texted')}
+                  whileTap={reducedMotion ? undefined : { scale: 0.92 }}
                   className="min-h-9 flex-1 rounded-full border border-slate-200 text-sm font-semibold text-slate-600 dark:border-white/10 dark:text-slate-300"
                 >
                   Texted
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   type="button"
                   onClick={() => logContact(friend.id, 'called')}
+                  whileTap={reducedMotion ? undefined : { scale: 0.92 }}
                   className="min-h-9 flex-1 rounded-full border border-slate-200 text-sm font-semibold text-slate-600 dark:border-white/10 dark:text-slate-300"
                 >
                   Called
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   type="button"
                   onClick={() => logContact(friend.id, 'hung out')}
+                  whileTap={reducedMotion ? undefined : { scale: 0.92 }}
                   className="min-h-9 flex-1 rounded-full border border-slate-200 text-sm font-semibold text-slate-600 dark:border-white/10 dark:text-slate-300"
                 >
                   Hung out
-                </button>
+                </motion.button>
               </div>
             </li>
           )

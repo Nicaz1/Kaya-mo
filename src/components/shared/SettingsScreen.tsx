@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { RECURRING_META, RECURRING_ORDER } from '../../data/recurringMeta'
 import { totalDaysCared } from '../../game/streak'
+import { useAuth } from '../../hooks/useAuth'
 import { useNotifications } from '../../hooks/useNotifications'
 import { exportStateToJSON, importStateFromJSON } from '../../storage/exportImport'
 import { migrate } from '../../storage/schema'
@@ -21,7 +22,11 @@ export function SettingsScreen() {
   const dispatch = useAppDispatch()
   const toast = useToast()
   const notifications = useNotifications()
+  const auth = useAuth()
   const [newDopamineItem, setNewDopamineItem] = useState('')
+  const [syncEmail, setSyncEmail] = useState('')
+  const [linkSent, setLinkSent] = useState(false)
+  const [sendingLink, setSendingLink] = useState(false)
 
   function updateSettings(patch: Partial<Settings>) {
     dispatch({ type: 'UPDATE_SETTINGS', settings: patch })
@@ -36,6 +41,20 @@ export function SettingsScreen() {
       }
     }
     updateSettings({ notificationsEnabled: !state.settings.notificationsEnabled })
+  }
+
+  async function sendSyncLink() {
+    const email = syncEmail.trim()
+    if (!email) return
+    setSendingLink(true)
+    const result = await auth.signInWithEmail(email)
+    setSendingLink(false)
+    if (!result.ok) {
+      toast.show(`Couldn't send that: ${result.error}`)
+      return
+    }
+    setLinkSent(true)
+    toast.show('Check your email for a sign-in link! 📬')
   }
 
   function addDopamineItem() {
@@ -255,6 +274,53 @@ export function SettingsScreen() {
             </button>
           </div>
         </section>
+
+        {/* Sync across devices */}
+        {auth.isConfigured && (
+          <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-white/5">
+            <p className="mb-1 font-semibold text-slate-700 dark:text-slate-200">Sync across devices</p>
+            {auth.user ? (
+              <>
+                <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">Signed in as {auth.user.email}</p>
+                <button
+                  type="button"
+                  onClick={() => auth.signOut()}
+                  className="min-h-10 rounded-full border border-slate-200 px-4 text-sm font-semibold text-slate-600 dark:border-white/10 dark:text-slate-300"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : linkSent ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Link sent to {syncEmail}! Open it on this device to finish signing in.
+              </p>
+            ) : (
+              <>
+                <p className="mb-3 text-xs text-slate-400">
+                  Optional — sign in with just an email to keep the same pet on all your devices.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={syncEmail}
+                    onChange={(e) => setSyncEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && sendSyncLink()}
+                    placeholder="you@example.com"
+                    className="min-h-10 flex-1 rounded-full border border-slate-200 bg-transparent px-4 text-sm text-slate-800 outline-none focus:border-focus dark:border-white/10 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendSyncLink}
+                    disabled={!syncEmail.trim() || sendingLink}
+                    className="min-h-10 rounded-full bg-focus px-4 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {sendingLink ? 'Sending…' : 'Send link'}
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        )}
 
         {/* Data */}
         <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-white/5">

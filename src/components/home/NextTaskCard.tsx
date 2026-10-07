@@ -1,7 +1,9 @@
+import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { METER_META } from '../../data/meterMeta'
 import { TASK_COMPLETE_RECOVERY } from '../../game/meters'
 import { pickNextTask } from '../../game/nextThing'
+import { useReducedMotion } from '../../hooks/useReducedMotion'
 import { useSound } from '../../hooks/useSound'
 import { useAppDispatch, useAppState } from '../../state/store'
 import { useToast } from '../../state/toast'
@@ -11,6 +13,7 @@ export function NextTaskCard() {
   const dispatch = useAppDispatch()
   const toast = useToast()
   const { play } = useSound()
+  const reducedMotion = useReducedMotion()
   const [skippedIds, setSkippedIds] = useState<string[]>([])
   const [breakingDown, setBreakingDown] = useState(false)
   const [firstStep, setFirstStep] = useState('')
@@ -64,7 +67,13 @@ export function NextTaskCard() {
   }
 
   return (
-    <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-sm dark:bg-white/5">
+    <motion.div
+      key={task.id}
+      initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-sm dark:bg-white/5"
+    >
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
         {meta.emoji} {meta.label} · do this next
       </p>
@@ -95,9 +104,14 @@ export function NextTaskCard() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={markDone} className="min-h-11 rounded-full bg-focus font-semibold text-white">
+          <motion.button
+            type="button"
+            onClick={markDone}
+            whileTap={reducedMotion ? undefined : { scale: 0.93 }}
+            className="min-h-11 rounded-full bg-focus font-semibold text-white"
+          >
             Done
-          </button>
+          </motion.button>
           <button
             type="button"
             onClick={() => setBreakingDown(true)}
@@ -113,6 +127,6 @@ export function NextTaskCard() {
           </button>
         </div>
       )}
-    </div>
+    </motion.div>
   )
 }

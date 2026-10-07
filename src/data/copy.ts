@@ -30,3 +30,12 @@ export function getPetLine(meters: Meters): string {
   }
   return NEUTRAL_LINE
 }
+
+/** What Kaya says when you tap/pet it — pure delight, unrelated to meters. */
+const PETTED_LINES = ['Hehe, that tickles!', 'Aww, thank you!', "You're the best!", 'Yay, pets!', '💛💛💛', 'More of that please!']
+
+/** Pure: picks a random petted quip. Injectable random for tests. */
+export function getPettedLine(random: () => number = Math.random): string {
+  const index = Math.floor(random() * PETTED_LINES.length)
+  return PETTED_LINES[index]
+}

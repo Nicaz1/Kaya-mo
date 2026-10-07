@@ -1,10 +1,13 @@
+import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { categorizeTask } from '../../game/categorize'
+import { useReducedMotion } from '../../hooks/useReducedMotion'
 import { useAppDispatch } from '../../state/store'
 
 /** Always-visible "+" — type one line, hit enter, done. No required fields. */
 export function QuickCapture() {
   const dispatch = useAppDispatch()
+  const reducedMotion = useReducedMotion()
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
 
@@ -42,7 +45,12 @@ export function QuickCapture() {
   }
 
   return (
-    <div className="fixed inset-x-4 bottom-24 z-30 flex items-center gap-2 rounded-2xl bg-white p-3 shadow-xl dark:bg-kaya-dark">
+    <motion.div
+      initial={reducedMotion ? false : { opacity: 0, scale: 0.95, y: 8 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      className="fixed inset-x-4 bottom-24 z-30 flex items-center gap-2 rounded-2xl bg-white p-3 shadow-xl dark:bg-kaya-dark"
+    >
       <input
         autoFocus
         value={value}
@@ -61,6 +69,6 @@ export function QuickCapture() {
       <button type="button" onClick={submit} className="min-h-11 rounded-full bg-focus px-4 font-semibold text-white">
         Add
       </button>
-    </div>
+    </motion.div>
   )
 }

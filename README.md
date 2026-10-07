@@ -2,7 +2,7 @@
 
 A Tamagotchi-style companion that helps an adult with ADHD stay on top of work, body, home, and friends — one tiny next thing at a time. No dying pet, no red overdue badges, no wall of tasks. Just Kaya, four gentle meters, and one suggestion at a time.
 
-Built with React, TypeScript, Vite, Tailwind, and Framer Motion. No backend — everything lives in your browser's `localStorage`, with JSON export/import so your data is never trapped.
+Built with React, TypeScript, Vite, Tailwind, and Framer Motion. No backend required — everything lives in your browser's `localStorage` by default, with JSON export/import so your data is never trapped. Optionally sign in with just an email to sync the same pet across devices (see below).
 
 ## Running it
 
@@ -26,6 +26,36 @@ npm run test:watch # Vitest in watch mode
 
 `npm run build && npm run preview`, then open it in Chrome/Edge/Safari and use "Add to Home Screen" / the install icon in the address bar. Kaya works offline once installed (service worker precaches the app shell).
 
+## Syncing across devices (optional)
+
+By default Kaya is 100% local — nothing leaves your browser. If you want the same pet on your phone and laptop, wire up a free [Supabase](https://supabase.com) project:
+
+1. Create a free account and a new project at supabase.com.
+2. In the SQL Editor, run:
+   ```sql
+   create table kaya_state (
+     user_id uuid primary key references auth.users(id),
+     state jsonb not null,
+     updated_at timestamptz not null default now()
+   );
+
+   alter table kaya_state enable row level security;
+
+   create policy "Users manage their own state"
+     on kaya_state for all
+     using (auth.uid() = user_id)
+     with check (auth.uid() = user_id);
+   ```
+3. In Settings → API, copy the **Project URL** and **anon/public key**.
+4. Copy `.env.example` to `.env.local` and fill in both values:
+   ```bash
+   cp .env.example .env.local
+   ```
+5. Restart `npm run dev`. A new "Sync across devices" section appears in Kaya's Settings — enter your email, click the magic link it sends you, and you're synced. Do the same on a second device with the same email to bring the pet along.
+6. If you deployed to Vercel (or elsewhere), add the same two env vars in that project's dashboard so the live site syncs too.
+
+Without this setup, Kaya runs exactly as before — sync is additive, never required.
+
 ## What you can do
 
 - Complete the **morning check-in** (energy, up to 3 wins, one must-do) — it quietly shapes which task gets suggested all day.
@@ -37,8 +67,10 @@ npm run test:watch # Vitest in watch mode
 - Add a **friend**, log "texted / called / hung out," and get gentle (never red, never "overdue") suggestions on who to reach out to.
 - Do an optional **evening wind-down**: what got done (auto-filled), one thing you're proud of, and tomorrow's first tiny task. Kaya goes to sleep.
 - Watch Kaya **level up** with a toast + sound as XP comes in from tasks, focus sessions, and boss steps.
+- **Tap/click Kaya** any time for a happy reaction — a bounce, a random cute quip, and a few sparkles. Pure delight, no meters or XP involved.
 - Step away for a few days and come back to a **"welcome back"** — meters reset to a comfortable middle, not wherever decay left them.
 - **Export/import** your data as JSON, toggle sound/theme/notifications, edit your dopamine menu, and turn individual recurring self-care prompts on or off — all in Settings.
+- Optionally **sync the same pet across devices** with just an email (magic link, no password) — see "Syncing across devices" above.
 
 ## Architecture
 
@@ -47,7 +79,10 @@ npm run test:watch # Vitest in watch mode
 - `src/data/` — static content: starter tasks, boss-battle templates, dopamine menu defaults, pet dialogue, meter/recurring metadata.
 - `src/storage/` — a small `localStorage` wrapper, a versioned schema with a `migrate()` escape hatch, and export/import helpers. Swapping in a real backend later means changing only this folder.
 - `src/state/` — a single `useReducer` store (`store.tsx`) exposed via `useAppState()` / `useAppDispatch()`, plus small sibling providers for navigation (`navigation.tsx`) and toasts (`toast.tsx`). All game-balance math (XP awards, meter recovery amounts) happens here by calling into `src/game/`.
-- `src/hooks/` — `useSound` (WebAudio-synthesized blips, no asset files), `useNotifications` (wraps the Notifications API), `useReducedMotion`, `useThemeSync`.
+- `src/hooks/` — `useSound` (WebAudio-synthesized blips, no asset files), `useNotifications` (wraps the Notifications API), `useReducedMotion`, `useThemeSync`, `useAuth` (Supabase magic-link session).
+- `src/lib/supabaseClient.ts` — the Supabase client, or `null` if `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` aren't set, so sync is always optional.
+- `src/state/cloudSync.ts` — thin `pushState`/`pullState` wrappers against a single `kaya_state` table (one JSON blob per user, mirroring the local schema).
+- `src/components/shared/CloudSyncManager.tsx` — mounted once app-wide; debounce-pushes on change while signed in, and resolves a one-time "use this device's data or the synced copy?" choice right after signing in on a second device.
 - `src/components/` — grouped by feature (`home/`, `focus/`, `boss/`, `friends/`, `checkin/`, `quests/`, `pet/`, `meters/`, `shared/`).
 
 ## Design decisions worth knowing about
@@ -57,13 +92,13 @@ npm run test:watch # Vitest in watch mode
 - **Next-task picker** (`game/nextThing.ts`) scores every open task on meter deficit, energy match, time-of-day fit, and a small random factor — body tasks get an extra boost when the Body meter is under 50, standing in for real per-task "last done" interval tracking.
 - **Sound** is synthesized with the WebAudio API (short sine-wave blips) rather than shipped as audio files — zero extra assets, trivially mutable, and easy to keep "quiet" by design.
 - **Notifications** are a client-only `setInterval` + Notifications API combo (water reminders, focus/side-quest end). There's no service-worker push, so nudges only fire while the tab is open — see Next steps.
+- **Sync conflict resolution is deliberately simple**: on sign-in, if the account already has synced data that differs from this device, you get one "keep this device's data or the synced copy?" choice — not a field-by-field merge. After that it's last-write-wins. Reconciling two independently-evolved pets automatically felt like more complexity than a personal sync feature needs.
 
 ## Next-step ideas
 
 - **Real push notifications.** Today's reminders only fire while the tab is open. A service-worker push + a tiny backend (or a push-as-a-service provider) would let Kaya nudge you even when the app is closed.
 - **Calendar sync** (Google/Outlook) to pull in real meetings for the Focus-task suggestions and avoid double-booking focus blocks.
 - **AI task breakdown** for "Too big" and Boss Battles — right now the user types their own tiny steps or picks a generic template; an LLM call could suggest steps tailored to the actual task text.
-- **Cross-device sync.** The `storage/` module is already isolated behind a small interface specifically so a real backend (or something like Supabase/Firebase) can be swapped in without touching game logic or components.
 - **Cosmetic unlocks shop.** `Pet.unlockedItemIds` / `equippedItemId` already exist in the data model as a hook for hats/room decor/backgrounds, but there's no shop UI yet — XP currently only drives leveling.
 - **Smarter recurring intervals.** Self-care "overdue" detection today is approximate (meter-deficit driven); storing a real target interval per recurring task and using `lastDoneAt` directly would make the next-task picker and water reminders more precise.
 - **Richer rabbit-hole detection.** The side-quest/focus-session model is manual (you decide when to start one); detecting actual tab-switching or idle time could make the "gently notice you've wandered" promise more automatic.
