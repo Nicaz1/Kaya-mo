@@ -9,6 +9,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      // Without these, a new deploy's service worker sits in "waiting" state
+      // indefinitely on a single-tab PWA — the old cached JS keeps serving
+      // until every tab closes and reopens. This makes updates take effect
+      // on the very next reload instead.
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+      },
       manifest: {
         name: 'Kaya',
         short_name: 'Kaya',
